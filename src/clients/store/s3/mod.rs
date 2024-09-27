@@ -339,7 +339,7 @@ impl S3RequestBuilder {
         let inner = http::Request::builder()
             .version(Version::HTTP_11)
             .method(method)
-            .uri(&format!("https://{bucket}.s3.amazonaws.com{relative_uri}"))
+            .uri(&format!("https://vir-express--usw2-az1--x-s3.s3express-usw2-az1.us-west-2.amazonaws.com{relative_uri}"))
             .header("host", &format!("{bucket}.s3.amazonaws.com"))
             .header("x-amz-content-sha256", &content_sha256)
             .header("x-amz-date", datetime);
@@ -428,7 +428,7 @@ impl S3RequestBuilder {
         s.inner = s
             .inner
             .header("date", s.timestamp.to_rfc2822())
-            .header("x-amz-storage-class", "STANDARD");
+            .header("x-amz-storage-class", "EXPRESS_ONEZONE");
 
         s
     }
