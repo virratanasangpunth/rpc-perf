@@ -1,3 +1,4 @@
+use rustls::KeyLogFile;
 use crate::clients::common::*;
 use crate::workload::{ClientRequest, ClientWorkItemKind};
 use crate::*;
@@ -56,11 +57,13 @@ pub async fn pool_manager(endpoint: String, _config: Config, queue: Queue<SendRe
         roots: webpki_roots::TLS_SERVER_ROOTS.into(),
     };
 
-    let config = Arc::new(
-        rustls::ClientConfig::builder()
-            .with_root_certificates(root_store)
-            .with_no_client_auth(),
-    );
+    let mut config = rustls::ClientConfig::builder()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
+
+    config.key_log = Arc::new(KeyLogFile::new());
+
+    let config = Arc::new(config);
 
     while RUNNING.load(Ordering::Relaxed) {
         if client.is_none() {
@@ -175,7 +178,7 @@ async fn task(
                         Ok((response, _)) => {
                             let response = response.await;
 
-                            let response = match response {
+                            let mut response = match response {
                                 Ok(r) => r,
                                 Err(_e) => {
                                     GET_EX.increment();
@@ -188,14 +191,21 @@ async fn task(
 
                             let status = response.status().as_u16();
 
+                            info!("get status: {status}");
+
                             // read the response body to completion
 
                             let mut buffer = BytesMut::new();
-                            let mut body = response.into_body();
+                            // let mut body = response.into_body();
 
-                            while let Some(chunk) = body.data().await {
+                            while let Some(chunk) = response.body_mut().data().await {
                                 if let Ok(b) = chunk {
+                                    info!("chunk for get: {}", b.len());
                                     buffer.extend_from_slice(&b);
+
+                                    // if body.is_end_stream() {
+                                    //     info!("end of stream");
+                                    // }
                                 } else {
                                     GET_EX.increment();
 
@@ -204,6 +214,8 @@ async fn task(
                                     continue;
                                 }
                             }
+
+                            info!("get complete");
 
                             let latency = start.elapsed();
 
@@ -269,7 +281,7 @@ async fn task(
                         let response = match response {
                             Ok(r) => r,
                             Err(_e) => {
-                                GET_EX.increment();
+                                SET_EX.increment();
 
                                 RESPONSE_EX.increment();
 
@@ -279,6 +291,8 @@ async fn task(
 
                         let status = response.status().as_u16();
 
+                        info!("set status: {status}");
+
                         // read the response body to completion
 
                         let mut buffer = BytesMut::new();
@@ -286,6 +300,7 @@ async fn task(
 
                         while let Some(chunk) = body.data().await {
                             if let Ok(b) = chunk {
+                                info!("chunk for set: {}", b.len());
                                 buffer.extend_from_slice(&b);
                             } else {
                                 GET_EX.increment();
@@ -295,6 +310,8 @@ async fn task(
                                 continue;
                             }
                         }
+
+                        info!("set complete");
 
                         let latency = start.elapsed();
 
@@ -349,6 +366,8 @@ async fn task(
 
                             let status = response.status().as_u16();
 
+                            info!("delete status: {status}");
+
                             // read the response body to completion
 
                             let mut buffer = BytesMut::new();
@@ -356,15 +375,18 @@ async fn task(
 
                             while let Some(chunk) = body.data().await {
                                 if let Ok(b) = chunk {
+                                    info!("chunk for delete: {}", b.len());
                                     buffer.extend_from_slice(&b);
                                 } else {
-                                    GET_EX.increment();
+                                    DELETE_EX.increment();
 
                                     RESPONSE_EX.increment();
 
                                     continue;
                                 }
                             }
+
+                            info!("delete complete");
 
                             let latency = start.elapsed();
 
