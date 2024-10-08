@@ -82,7 +82,13 @@ pub async fn pool_manager(endpoint: String, _config: Config, queue: Queue<SendRe
                         .await
                         .unwrap();
 
-                    if let Ok((h2, connection)) = ::h2::client::handshake(stream).await {
+                    let client_builder = ::h2::client::Builder::new()
+                        .initial_window_size(32 * 1024 * 1024)
+                        .initial_connection_window_size(32 * 1024 * 1024)
+                        .max_frame_size(8 * 1024 * 1024)
+                        .handshake(stream);
+
+                    if let Ok((h2, connection)) = client_builder.await {
                         tokio::spawn(async move {
                             let _ = connection.await;
                         });
@@ -191,8 +197,6 @@ async fn task(
 
                             let status = response.status().as_u16();
 
-                            info!("get status: {status}");
-
                             // read the response body to completion
 
                             let mut buffer = BytesMut::new();
@@ -200,12 +204,7 @@ async fn task(
 
                             while let Some(chunk) = response.body_mut().data().await {
                                 if let Ok(b) = chunk {
-                                    info!("chunk for get: {}", b.len());
                                     buffer.extend_from_slice(&b);
-
-                                    // if body.is_end_stream() {
-                                    //     info!("end of stream");
-                                    // }
                                 } else {
                                     GET_EX.increment();
 
@@ -214,8 +213,6 @@ async fn task(
                                     continue;
                                 }
                             }
-
-                            info!("get complete");
 
                             let latency = start.elapsed();
 
@@ -291,8 +288,6 @@ async fn task(
 
                         let status = response.status().as_u16();
 
-                        info!("set status: {status}");
-
                         // read the response body to completion
 
                         let mut buffer = BytesMut::new();
@@ -300,7 +295,6 @@ async fn task(
 
                         while let Some(chunk) = body.data().await {
                             if let Ok(b) = chunk {
-                                info!("chunk for set: {}", b.len());
                                 buffer.extend_from_slice(&b);
                             } else {
                                 GET_EX.increment();
@@ -310,8 +304,6 @@ async fn task(
                                 continue;
                             }
                         }
-
-                        info!("set complete");
 
                         let latency = start.elapsed();
 
@@ -366,8 +358,6 @@ async fn task(
 
                             let status = response.status().as_u16();
 
-                            info!("delete status: {status}");
-
                             // read the response body to completion
 
                             let mut buffer = BytesMut::new();
@@ -375,7 +365,6 @@ async fn task(
 
                             while let Some(chunk) = body.data().await {
                                 if let Ok(b) = chunk {
-                                    info!("chunk for delete: {}", b.len());
                                     buffer.extend_from_slice(&b);
                                 } else {
                                     DELETE_EX.increment();
@@ -385,8 +374,6 @@ async fn task(
                                     continue;
                                 }
                             }
-
-                            info!("delete complete");
 
                             let latency = start.elapsed();
 
