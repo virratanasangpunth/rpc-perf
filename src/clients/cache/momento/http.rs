@@ -83,9 +83,9 @@ pub async fn pool_manager(endpoint: String, _config: Config, queue: Queue<SendRe
                         .unwrap();
 
                     let client_builder = ::h2::client::Builder::new()
-                        .initial_window_size(32 * 1024 * 1024)
-                        .initial_connection_window_size(32 * 1024 * 1024)
-                        .max_frame_size(16 * 1024 * 1024 - 1)
+                        // .initial_window_size(32 * 1024 * 1024)
+                        // .initial_connection_window_size(32 * 1024 * 1024)
+                        // .max_frame_size(8 * 1024 * 1024)
                         .handshake(stream);
 
                     if let Ok((h2, connection)) = client_builder.await {
@@ -200,11 +200,23 @@ async fn task(
                             // read the response body to completion
 
                             let mut buffer = BytesMut::new();
-                            // let mut body = response.into_body();
 
                             while let Some(chunk) = response.body_mut().data().await {
                                 if let Ok(b) = chunk {
+                                    // info!("chunk for get: ({}) {}", std::str::from_utf8(&r.key).unwrap(), b.len());
                                     buffer.extend_from_slice(&b);
+                                    if response.body_mut().flow_control().release_capacity(b.len()).is_err() {
+                                        // info!("error releasing capacity");
+                                        GET_EX.increment();
+
+                                        RESPONSE_EX.increment();
+
+                                        continue;
+                                    }
+
+                                    // if body.is_end_stream() {
+                                    //     info!("end of stream");
+                                    // }
                                 } else {
                                     GET_EX.increment();
 
@@ -213,6 +225,8 @@ async fn task(
                                     continue;
                                 }
                             }
+
+                            // info!("get complete");
 
                             let latency = start.elapsed();
 
@@ -275,7 +289,7 @@ async fn task(
 
                         let response = response.await;
 
-                        let response = match response {
+                        let mut response = match response {
                             Ok(r) => r,
                             Err(_e) => {
                                 SET_EX.increment();
@@ -288,22 +302,35 @@ async fn task(
 
                         let status = response.status().as_u16();
 
+                        // info!("set status: {status}");
+
                         // read the response body to completion
 
                         let mut buffer = BytesMut::new();
-                        let mut body = response.into_body();
 
-                        while let Some(chunk) = body.data().await {
+                        while let Some(chunk) = response.body_mut().data().await {
                             if let Ok(b) = chunk {
+                                // info!("chunk for set: {}", b.len());
                                 buffer.extend_from_slice(&b);
+                                if response.body_mut().flow_control().release_capacity(b.len()).is_err() {
+                                    // info!("error releasing capacity");
+                                    SET_EX.increment();
+
+                                    RESPONSE_EX.increment();
+
+                                    continue;
+                                }
+
                             } else {
-                                GET_EX.increment();
+                                SET_EX.increment();
 
                                 RESPONSE_EX.increment();
 
                                 continue;
                             }
                         }
+
+                        // info!("set complete");
 
                         let latency = start.elapsed();
 
@@ -345,7 +372,7 @@ async fn task(
                         Ok((response, _)) => {
                             let response = response.await;
 
-                            let response = match response {
+                            let mut response = match response {
                                 Ok(r) => r,
                                 Err(_e) => {
                                     GET_EX.increment();
@@ -358,14 +385,24 @@ async fn task(
 
                             let status = response.status().as_u16();
 
+                            // info!("delete status: {status}");
+
                             // read the response body to completion
 
                             let mut buffer = BytesMut::new();
-                            let mut body = response.into_body();
 
-                            while let Some(chunk) = body.data().await {
+                            while let Some(chunk) = response.body_mut().data().await {
                                 if let Ok(b) = chunk {
+                                    // info!("chunk for delete: {}", b.len());
                                     buffer.extend_from_slice(&b);
+                                    if response.body_mut().flow_control().release_capacity(b.len()).is_err() {
+                                        // info!("error releasing capacity");
+                                        DELETE_EX.increment();
+
+                                        RESPONSE_EX.increment();
+
+                                        continue;
+                                    }
                                 } else {
                                     DELETE_EX.increment();
 
@@ -374,6 +411,8 @@ async fn task(
                                     continue;
                                 }
                             }
+
+                            // info!("delete complete");
 
                             let latency = start.elapsed();
 
