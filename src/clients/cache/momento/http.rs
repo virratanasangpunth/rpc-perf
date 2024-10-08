@@ -85,7 +85,7 @@ pub async fn pool_manager(endpoint: String, _config: Config, queue: Queue<SendRe
                     let client_builder = ::h2::client::Builder::new()
                         .initial_window_size(32 * 1024 * 1024)
                         .initial_connection_window_size(32 * 1024 * 1024)
-                        .max_frame_size(8 * 1024 * 1024)
+                        .max_frame_size(16 * 1024 * 1024 - 1)
                         .handshake(stream);
 
                     if let Ok((h2, connection)) = client_builder.await {
