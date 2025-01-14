@@ -350,6 +350,7 @@ async fn task(
                         }
 
                         let latency = start.elapsed();
+                        println!("latency: {:?}", latency.as_millis());
 
                         REQUEST_OK.increment();
 

@@ -1,0 +1,84 @@
+[general]
+# specify the protocol to be used
+protocol = "momento_http"
+# the interval for stats integration and reporting
+interval = 60
+# the number of intervals to run the test for
+duration = 86400
+# run the admin thread with a HTTP listener at the address provided, this allows
+# stats exposition via HTTP
+admin = "127.0.0.1:4444"
+initial_seed = "0"
+
+[metrics]
+# output file for detailed stats during the run
+output = "stats.parquet"
+# format of the output file (possible values are json, msgpack, parquet)
+format = "parquet"
+# optionally specify batch size for parquet row groups
+# only valid for parquet output
+batch_size = 100_000
+# optionally specify histogram type (can be standard (default) or sparse)
+# only valid for parquet output
+histogram = "sparse"
+# optionally, specify the sampling interval for metrics. Input is a string
+# with the unit attached; for example "100ms" or "1s". Defaults to 1s.
+interval = "60s"
+
+[debug]
+# choose from: error, warn, info, debug, trace
+log_level = "info"
+# optionally, log to the file below instead of standard out
+# log_file = "rpc-perf.log"
+# backup file name for use with log rotation
+log_backup = "rpc-perf.log.old"
+# trigger log rotation when the file grows beyond this size (in bytes). Set this
+# option to '0' to disable log rotation.
+log_max_size = 1073741824
+
+[target]
+endpoints = ["https://api.cache.developer-vir-dev.preprod.a.momentohq.com"]
+cache_name = "int-disney-4rg"
+
+[client]
+# number of threads used to drive client requests
+threads = 8
+# number of gRPC clients to initialize, each maintains at least one TCP stream
+poolsize = 8
+# an upper limit on the number of concurrent requests per gRPC client
+concurrency = 1
+# the connect timeout in milliseconds
+connect_timeout = 10000
+# set the timeout in milliseconds
+request_timeout = 10000
+
+[workload]
+# the number of threads that will be used to generate the workload
+threads = 1
+
+[workload.ratelimit]
+# set a global ratelimit for the workload
+start = 8
+
+# 1280x720  7000 Kbps segments, 20 write tps
+[[workload.keyspace]]
+# sets the relative weight of this keyspace: defaults to 1
+weight = 1
+# sets the length of the key, in bytes
+klen = 100
+# sets the number of keys that will be generated
+nkeys = 2000
+# sets the value length, in bytes
+vlen = 2_000_000
+# optionally, specify an approximate compression ratio for the value payload.
+# Defaults to 1.0 meaning the message is high-entropy and not compressible.
+compression_ratio = 1.0
+# use random bytes for the values
+vkind = "bytes"
+# override the default ttl for this keyspace
+ttl = "2h"
+# controls what commands will be used in this keyspace
+commands = [
+    # set a value
+    { verb = "set", weight = 1 },
+]

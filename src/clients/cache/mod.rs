@@ -40,6 +40,7 @@ pub fn launch(
     // spawn the request drivers on their own runtime
     let mut client_rt = Builder::new_multi_thread()
         .enable_all()
+        .event_interval(3)
         .worker_threads(config.client().unwrap().threads())
         .build()
         .expect("failed to initialize tokio runtime");
