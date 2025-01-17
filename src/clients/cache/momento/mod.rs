@@ -9,6 +9,7 @@ mod commands;
 use commands::*;
 
 pub mod http;
+pub mod http1;
 
 /// Launch tasks with one channel per task as gRPC is mux-enabled.
 pub fn launch_tasks(

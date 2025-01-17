@@ -7,6 +7,7 @@ pub enum Protocol {
     Memcache,
     Momento,
     MomentoHttp,
+    MomentoHttp1,
     Mysql,
     Ping,
     PingGrpc,

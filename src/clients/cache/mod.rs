@@ -50,6 +50,9 @@ pub fn launch(
         Protocol::MomentoHttp => {
             momento::http::launch_tasks(&mut client_rt, config.clone(), work_receiver)
         }
+        Protocol::MomentoHttp1 => {
+            momento::http1::launch_tasks(&mut client_rt, config.clone(), work_receiver)
+        }
         Protocol::Ping => {
             crate::clients::ping::ascii::launch_tasks(&mut client_rt, config.clone(), work_receiver)
         }
