@@ -33,7 +33,8 @@ pub async fn set(
             SET_STORED.increment();
             Ok(())
         }
-        Ok(Err(_)) => {
+        Ok(Err(e)) => {
+            error!("redis_set error: {e:?}");
             SET_EX.increment();
             Err(ResponseError::Exception)
         }

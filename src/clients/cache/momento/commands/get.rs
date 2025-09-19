@@ -32,6 +32,7 @@ pub async fn get(
             }
         },
         Ok(Err(e)) => {
+            error!("momento_get_error: {e:?}");
             GET_EX.increment();
             Err(e.into())
         }

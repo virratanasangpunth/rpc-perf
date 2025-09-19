@@ -23,5 +23,9 @@ pub async fn set(
     )
     .await;
 
+    if let Ok(Err(err)) = &result {
+        error!("momento_set_error: {err:?}");
+    }
+
     record_result!(result, SET, SET_STORED)
 }
