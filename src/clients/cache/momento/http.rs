@@ -149,6 +149,7 @@ async fn task(
         })
         .as_str()
         .to_owned();
+    error!("vir http endpoint: {endpoint}");
 
     let mut buffer = BytesMut::new();
 
@@ -191,7 +192,8 @@ async fn task(
 
                             let mut response = match response {
                                 Ok(r) => r,
-                                Err(_e) => {
+                                Err(e) => {
+                                    error!("vir momento_http_get_error: {e:?}");
                                     GET_EX.increment();
 
                                     RESPONSE_EX.increment();
@@ -245,6 +247,7 @@ async fn task(
 
                             REQUEST_OK.increment();
 
+                            error!("vir momento_http_get_status: {status:?}");
                             match status {
                                 200 => {
                                     GET_OK.increment();
@@ -363,6 +366,8 @@ async fn task(
                         let latency = start.elapsed();
 
                         REQUEST_OK.increment();
+
+                        error!("vir momento_http_set_status: {status:?}");
 
                         match status {
                             204 => {
