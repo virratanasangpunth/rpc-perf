@@ -363,7 +363,7 @@ async fn task(
 
                                     continue;
                                 }
-
+                                error!("vir momento_http_set release_capacity");
                                 // Let the server send more data.
                                 let _ = flow_control.release_capacity(chunk.unwrap().len());
                             }
