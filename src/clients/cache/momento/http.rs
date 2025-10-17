@@ -287,6 +287,8 @@ async fn task(
                     }
                 }
                 ClientRequest::Set(r) => {
+                    error!("vir momento_http_set starting");
+
                     let request = MomentoRequestBuilder::set(
                         &endpoint,
                         cache,
@@ -330,6 +332,8 @@ async fn task(
                         let response = response.await;
 
                         if response.is_err() {
+                            error!("vir momento_http_set response error");
+
                             SET_EX.increment();
 
                             RESPONSE_EX.increment();
@@ -349,6 +353,8 @@ async fn task(
                             // loop to read all the response
                             while let Some(chunk) = body.data().await {
                                 if chunk.is_err() {
+                                    error!("vir momento_http_set chunk error");
+
                                     SET_EX.increment();
 
                                     RESPONSE_EX.increment();
