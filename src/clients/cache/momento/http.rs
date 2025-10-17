@@ -305,6 +305,7 @@ async fn task(
                         let mut idx = 0;
 
                         while idx < value.len() {
+                            error!("vir momento_http_set sending data...");
                             stream.reserve_capacity(value.len() - idx);
                             let mut available = stream.capacity();
 
@@ -325,6 +326,7 @@ async fn task(
                                 idx = end;
                             }
                         }
+                        error!("vir momento_http_set sending data DONE");
 
                         // reduce the stream capacity
                         stream.reserve_capacity(1024);
