@@ -32,14 +32,14 @@ pub async fn hash_get(
         let fields: Vec<&[u8]> = request.fields.iter().map(|f| &**f).collect();
         match timeout(
             config.client().unwrap().request_timeout(),
-            connection.hget::<&[u8], &[&[u8]], Option<Vec<Option<Vec<u8>>>>>(&request.key, &fields),
+            connection.hmget::<&[u8], &[&[u8]], Vec<Option<Vec<u8>>>>(&request.key, &fields),
         )
         .await
         {
-            Ok(Ok(Some(values))) => {
+            Ok(Ok(values)) => {
                 let mut hits = 0;
                 let mut misses = 0;
-                for value in values {
+                for value in &values {
                     if value.is_some() {
                         hits += 1;
                     } else {
@@ -50,11 +50,6 @@ pub async fn hash_get(
                 RESPONSE_MISS.add(misses);
                 HASH_GET_FIELD_HIT.add(hits);
                 HASH_GET_FIELD_MISS.add(misses);
-                Ok(())
-            }
-            Ok(Ok(None)) => {
-                RESPONSE_MISS.add(fields.len() as _);
-                HASH_GET_FIELD_MISS.add(fields.len() as _);
                 Ok(())
             }
             Ok(Err(_)) => Err(ResponseError::Exception),

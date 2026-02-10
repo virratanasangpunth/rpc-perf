@@ -54,10 +54,11 @@ rand = "0.9.0"
 rand_distr = "0.5.1"
 rand_xoshiro = "0.7.0"
 ratelimit = "0.10.0"
-redis = { version = "0.23.3", features = [
+redis = { version = "1.0.0", features = [
     "tokio-comp",
-    "tls-native-tls",
-    "tokio-native-tls-comp",
+    "connection-manager",
+    "cluster-async",
+    "tokio-rustls-comp",
 ] }
 ringlog = "0.8.0"
 rustls = "0.23.23"
