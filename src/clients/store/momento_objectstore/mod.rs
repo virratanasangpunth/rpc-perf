@@ -8,8 +8,14 @@ use bytes::Bytes;
 use h2::client::SendRequest;
 use http::Method;
 use tokio::runtime::Runtime;
+use tokio::time::timeout;
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
+
+/// Fallback per-request timeout when `[storage].request_timeout` is unset.
+/// Prefer an explicit value in the config; this exists only to avoid letting
+/// stuck requests pile up indefinitely.
+const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Launch pool managers and worker tasks for Momento ObjectStore.
 ///
@@ -47,6 +53,11 @@ async fn task(
     config: Config,
     queue: Queue<SendRequest<Bytes>>,
 ) -> Result<(), std::io::Error> {
+    let request_timeout = config
+        .storage()
+        .and_then(|s| s.request_timeout())
+        .unwrap_or(DEFAULT_REQUEST_TIMEOUT);
+
     let token = std::env::var("MOMENTO_API_KEY").unwrap_or_else(|_| {
         eprintln!("environment variable `MOMENTO_API_KEY` is not set");
         std::process::exit(1);
@@ -101,7 +112,14 @@ async fn task(
 
                     match sender.send_request(request, true) {
                         Ok((response, _)) => {
-                            let response = response.await;
+                            let response = match timeout(request_timeout, response).await {
+                                Ok(r) => r,
+                                Err(_) => {
+                                    STORE_GET_EX.increment();
+                                    STORE_RESPONSE_TIMEOUT.increment();
+                                    continue;
+                                }
+                            };
 
                             let mut response = match response {
                                 Ok(r) => r,
@@ -128,14 +146,30 @@ async fn task(
                                     continue;
                                 }
 
-                                while let Some(chunk) = body.data().await {
-                                    if chunk.is_err() {
+                                let remaining = request_timeout.saturating_sub(start.elapsed());
+                                let drain = async {
+                                    while let Some(chunk) = body.data().await {
+                                        let chunk = match chunk {
+                                            Ok(c) => c,
+                                            Err(_) => return Err(()),
+                                        };
+                                        let _ = flow_control.release_capacity(chunk.len());
+                                    }
+                                    Ok(())
+                                };
+
+                                match timeout(remaining, drain).await {
+                                    Ok(Ok(())) => {}
+                                    Ok(Err(())) => {
                                         STORE_GET_EX.increment();
                                         STORE_RESPONSE_EX.increment();
                                         continue;
                                     }
-
-                                    let _ = flow_control.release_capacity(chunk.unwrap().len());
+                                    Err(_) => {
+                                        STORE_GET_EX.increment();
+                                        STORE_RESPONSE_TIMEOUT.increment();
+                                        continue;
+                                    }
                                 }
                             }
 
@@ -222,7 +256,15 @@ async fn task(
 
                         stream.reserve_capacity(1024);
 
-                        let response = response.await;
+                        let remaining = request_timeout.saturating_sub(start.elapsed());
+                        let response = match timeout(remaining, response).await {
+                            Ok(r) => r,
+                            Err(_) => {
+                                STORE_PUT_EX.increment();
+                                STORE_RESPONSE_TIMEOUT.increment();
+                                continue;
+                            }
+                        };
 
                         if response.is_err() {
                             STORE_PUT_EX.increment();
@@ -236,14 +278,30 @@ async fn task(
                         if !body.is_end_stream() {
                             let mut flow_control = body.flow_control().clone();
 
-                            while let Some(chunk) = body.data().await {
-                                if chunk.is_err() {
+                            let remaining = request_timeout.saturating_sub(start.elapsed());
+                            let drain = async {
+                                while let Some(chunk) = body.data().await {
+                                    let chunk = match chunk {
+                                        Ok(c) => c,
+                                        Err(_) => return Err(()),
+                                    };
+                                    let _ = flow_control.release_capacity(chunk.len());
+                                }
+                                Ok(())
+                            };
+
+                            match timeout(remaining, drain).await {
+                                Ok(Ok(())) => {}
+                                Ok(Err(())) => {
                                     STORE_PUT_EX.increment();
                                     STORE_RESPONSE_EX.increment();
                                     continue;
                                 }
-
-                                let _ = flow_control.release_capacity(chunk.unwrap().len());
+                                Err(_) => {
+                                    STORE_PUT_EX.increment();
+                                    STORE_RESPONSE_TIMEOUT.increment();
+                                    continue;
+                                }
                             }
                         };
 

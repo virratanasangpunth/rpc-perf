@@ -13,9 +13,9 @@ pub struct Storage {
     /// The number of concurrent sessions per connection (for H2 mux).
     #[serde(default = "default_concurrency")]
     concurrency: usize,
-    /// Request timeout in milliseconds.
+    /// Request timeout in milliseconds. If unset, clients should fall back
+    /// to a sensible default rather than letting requests hang indefinitely.
     #[serde(default)]
-    #[allow(dead_code)]
     request_timeout: Option<u64>,
 }
 
@@ -32,7 +32,6 @@ impl Storage {
         std::cmp::max(1, self.concurrency)
     }
 
-    #[allow(dead_code)]
     pub fn request_timeout(&self) -> Option<Duration> {
         self.request_timeout.map(Duration::from_millis)
     }
